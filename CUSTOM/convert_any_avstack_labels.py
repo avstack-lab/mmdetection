@@ -9,7 +9,7 @@ import avapi
 from avstack.environment.objects import Occlusion
 
 
-def convert_avstack_to_coco(SM, scene_splits, out_file, cameras=['CAM_FRONT']):
+def convert_avstack_to_coco(SM, scene_splits, out_file, n_skips=0, cameras=['CAM_FRONT']):
     """
     Converts avstack labels to coco format
 
@@ -37,30 +37,36 @@ def convert_avstack_to_coco(SM, scene_splits, out_file, cameras=['CAM_FRONT']):
             logging.exception(e)
             print(f'Could not process scene {scene}...continuing')
             continue
-        # print(f'...running scene {scene}')
+
+        # -- get names of sensors
+        if cameras is None:
+            cameras = [sens for sens in list(SD.sensor_IDs.keys()) if 
+                    (('cam' in sens.lower()) or ('image' in sens.lower())) and 
+                    ('depth' not in sens.lower()) and ('semseg' not in sens.lower())]
+
+        # -- loop over sensors
         for cam in cameras:
             frames = SD.get_frames(sensor=cam)
             height, width = None, None
-            for idx in range(0, len(frames), args.n_skips+1):
-                i_frame = frames[idx]
-                if i_frame < 3:  # don't do the first few frames
+            for idx in range(0, len(frames), n_skips+1):
+                frame = frames[idx]
+                if (idx < 5) or (idx > len(frames)-5):  # don't do the first or last few frames
                     continue
                 # -- image information
-                # img = SD.get_image(i_frame, sensor=cam)
-                calib = SD.get_calibration(i_frame, sensor=cam)
                 try:
-                    objs = SD.get_objects(i_frame, sensor=cam)
+                    calib = SD.get_calibration(frame, sensor=cam)
+                    objs = SD.get_objects(frame, sensor=cam)
                     if len(objs) == 0:
                         n_ignored += 1
                         continue
-                except KeyError as e:
+                except (FileNotFoundError, KeyError) as e:
                     n_problems += 1
                     logging.exception(e)
                     continue
                 if height is None:
                     height = int(calib.height)
                     width = int(calib.width)
-                img_filepath = SD.get_sensor_data_filepath(i_frame, sensor=cam)
+                img_filepath = SD.get_sensor_data_filepath(frame, sensor=cam)
                 if not os.path.exists(img_filepath):
                     logging.warning(f'Could not find image filepath at {img_filepath}')
                     n_problems += 1
@@ -85,7 +91,7 @@ def convert_avstack_to_coco(SM, scene_splits, out_file, cameras=['CAM_FRONT']):
                 for obj in objs:
                     if obj.occlusion == Occlusion.UNKNOWN:
                         try:
-                            d_img = SD.get_depthimage(i_frame, cam + '_DEPTH')
+                            d_img = SD.get_depthimage(frame, cam + '_DEPTH')
                         except KeyError as e:
                             if first:
                                 print('\n\nNo depth image found. Logging first exception only. Do not worry if using a dataset like nuScenes or KITTI.\n\n')
@@ -127,15 +133,16 @@ def convert_avstack_to_coco(SM, scene_splits, out_file, cameras=['CAM_FRONT']):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Wrap avstack data to coco format for training')
-    parser.add_argument('dataset', choices=['carla', 'kitti', 'nuscenes'], help='Choice of dataset')
-    parser.add_argument('data_dir', type=str, help='Path to main dataset storage location')
+    parser.add_argument('--dataset', choices=['carla', 'kitti', 'nuscenes'], help='Choice of dataset')
+    parser.add_argument('--subfolder', type=str, help='Save subfolder name')
+    parser.add_argument('--data_dir', type=str, help='Path to main dataset storage location')
     parser.add_argument('--n_skips', default=0, type=int, help='Number of skips between frames of a sequence')
     args = parser.parse_args()
 
     # -- create scene manager and get scene splits
     if args.dataset == 'carla':
         SM = avapi.carla.CarlaScenesManager(args.data_dir)
-        cameras = ['CAM_FRONT', 'CAM_BACK', 'CAM_FRONT_LEFT', 'CAM_FRONT_RIGHT']
+        cameras = None
         splits_scenes = avapi.carla.get_splits_scenes(args.data_dir)
     elif args.dataset == 'kitti':
         cameras = ['image-2']
@@ -152,7 +159,7 @@ if __name__ == "__main__":
     # -- run main call
     for split in ['train', 'val']:
         print(f'Converting {split}...')
-        out_file = f'../data/{args.dataset}/{split}_annotation_{args.dataset}_in_coco.json'
+        out_file = f'../data/{args.dataset}/{args.subfolder}/{split}_annotation_{args.dataset}_in_coco.json'
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
-        convert_avstack_to_coco(SM, splits_scenes[split], out_file, cameras)
+        convert_avstack_to_coco(SM, splits_scenes[split], out_file, n_skips=args.n_skips, cameras=cameras)
         print(f'done')
