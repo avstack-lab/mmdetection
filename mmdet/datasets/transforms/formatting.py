@@ -96,6 +96,8 @@ class PackDetInputs(BaseTransform):
                 continue
             if key == 'gt_masks' or isinstance(results[key], BaseBoxes):
                 if 'gt_ignore_flags' in results:
+                    if len(valid_idx) > len(results[key]):
+                        valid_idx = valid_idx[:len(results[key])]
                     instance_data[
                         self.mapping_table[key]] = results[key][valid_idx]
                     ignore_instance_data[

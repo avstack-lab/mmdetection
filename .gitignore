@@ -1,3 +1,4 @@
+*.pdf
 *.prof
 checkpoints
 work_dirs
