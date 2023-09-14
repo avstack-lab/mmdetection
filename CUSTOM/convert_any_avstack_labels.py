@@ -142,12 +142,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # -- create scene manager and get scene splits
+    dataset = args.dataset
     if args.dataset == 'carla':
         SM = avapi.carla.CarlaScenesManager(args.data_dir)
         cameras = None
         cam_filter = None
         splits_scenes = avapi.carla.get_splits_scenes(args.data_dir)
     elif args.dataset == 'carla-infrastructure':
+        dataset = 'carla'
         SM = avapi.carla.CarlaScenesManager(args.data_dir)
         cameras = None
         cam_filter = 'infra'
@@ -171,7 +173,7 @@ if __name__ == "__main__":
     # -- run main call
     for split in ['train', 'val']:
         print(f'Converting {split}...')
-        out_file = f'../data/{args.dataset}/{args.subfolder}/{split}_annotation_{args.dataset}_in_coco.json'
+        out_file = f'../data/{dataset}/{args.subfolder}/{split}_annotation_{dataset}_in_coco.json'
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         convert_avstack_to_coco(SM, splits_scenes[split], out_file, n_skips=args.n_skips, cameras=cameras, cam_filter=cam_filter)
         print(f'done')
