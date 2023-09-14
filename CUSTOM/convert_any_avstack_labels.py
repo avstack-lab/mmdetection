@@ -9,7 +9,7 @@ import avapi
 from avstack.environment.objects import Occlusion
 
 
-def convert_avstack_to_coco(SM, scene_splits, out_file, n_skips=0, cameras=['CAM_FRONT']):
+def convert_avstack_to_coco(SM, scene_splits, out_file, n_skips=0, cameras=['CAM_FRONT'], cam_filter=None):
     """
     Converts avstack labels to coco format
 
@@ -43,6 +43,8 @@ def convert_avstack_to_coco(SM, scene_splits, out_file, n_skips=0, cameras=['CAM
             cameras = [sens for sens in list(SD.sensor_IDs.keys()) if 
                     (('cam' in sens.lower()) or ('image' in sens.lower())) and 
                     ('depth' not in sens.lower()) and ('semseg' not in sens.lower())]
+        if cam_filter is not None:
+            cameras = [cam for cam in cameras if cam_filter.lower() in cam.lower()]
 
         # -- loop over sensors
         for cam in cameras:
@@ -133,7 +135,7 @@ def convert_avstack_to_coco(SM, scene_splits, out_file, n_skips=0, cameras=['CAM
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Wrap avstack data to coco format for training')
-    parser.add_argument('--dataset', choices=['carla', 'kitti', 'nuscenes'], help='Choice of dataset')
+    parser.add_argument('--dataset', choices=['carla', 'kitti', 'nuscenes', 'carla-infrastructure'], help='Choice of dataset')
     parser.add_argument('--subfolder', type=str, help='Save subfolder name')
     parser.add_argument('--data_dir', type=str, help='Path to main dataset storage location')
     parser.add_argument('--n_skips', default=0, type=int, help='Number of skips between frames of a sequence')
@@ -143,15 +145,25 @@ if __name__ == "__main__":
     if args.dataset == 'carla':
         SM = avapi.carla.CarlaScenesManager(args.data_dir)
         cameras = None
+        cam_filter = None
         splits_scenes = avapi.carla.get_splits_scenes(args.data_dir)
+    elif args.dataset == 'carla-infrastructure':
+        SM = avapi.carla.CarlaScenesManager(args.data_dir)
+        cameras = None
+        cam_filter = 'infra'
+        splits_scenes = avapi.carla.get_splits_scenes(args.data_dir)
+    elif args.dataset == 'carla-joint':
+        raise NotImplemented
     elif args.dataset == 'kitti':
         cameras = ['image-2']
+        cam_filter = None
         splits_scenes = avapi.kitti.splits_scenes
         raise
     elif args.dataset == 'nuscenes':
         SM = avapi.nuscenes.nuScenesManager(args.data_dir, split="v1.0-trainval")
         cameras = ['CAM_FRONT', 'CAM_BACK', 'CAM_FRONT_LEFT', 'CAM_FRONT_RIGHT',
             'CAM_BACK_LEFT', 'CAM_BACK_RIGHT']
+        cam_filter = None
         splits_scenes = avapi.nuscenes.splits_scenes
     else:
         raise NotImplementedError(args.dataset)
@@ -161,5 +173,5 @@ if __name__ == "__main__":
         print(f'Converting {split}...')
         out_file = f'../data/{args.dataset}/{args.subfolder}/{split}_annotation_{args.dataset}_in_coco.json'
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
-        convert_avstack_to_coco(SM, splits_scenes[split], out_file, n_skips=args.n_skips, cameras=cameras)
+        convert_avstack_to_coco(SM, splits_scenes[split], out_file, n_skips=args.n_skips, cameras=cameras, cam_filter=cam_filter)
         print(f'done')
