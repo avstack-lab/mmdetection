@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -x
+
+SKIPS=${1:?"missing arg 1 for SKIPS"}
+
+python3 convert_any_avstack_labels.py \
+    --dataset carla-joint \
+    --subfolder joint/skip_"$SKIPS" \
+    --data_dir /data/spencer/CARLA/joint-data \
+    --n_skips "$SKIPS"

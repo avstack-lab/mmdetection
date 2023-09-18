@@ -135,7 +135,7 @@ def convert_avstack_to_coco(SM, scene_splits, out_file, n_skips=0, cameras=['CAM
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Wrap avstack data to coco format for training')
-    parser.add_argument('--dataset', choices=['carla', 'kitti', 'nuscenes', 'carla-infrastructure'], help='Choice of dataset')
+    parser.add_argument('--dataset', choices=['carla', 'kitti', 'nuscenes', 'carla-infrastructure', 'carla-joint'], help='Choice of dataset')
     parser.add_argument('--subfolder', type=str, help='Save subfolder name')
     parser.add_argument('--data_dir', type=str, help='Path to main dataset storage location')
     parser.add_argument('--n_skips', default=0, type=int, help='Number of skips between frames of a sequence')
@@ -153,6 +153,12 @@ if __name__ == "__main__":
         SM = avapi.carla.CarlaScenesManager(args.data_dir)
         cameras = None
         cam_filter = 'infra'
+        splits_scenes = avapi.carla.get_splits_scenes(args.data_dir)
+    elif args.dataset == 'carla-joint':
+        dataset = 'carla'
+        SM = avapi.carla.CarlaScenesManager(args.data_dir)
+        cameras = None
+        cam_filter = None
         splits_scenes = avapi.carla.get_splits_scenes(args.data_dir)
     elif args.dataset == 'carla-joint':
         raise NotImplemented
