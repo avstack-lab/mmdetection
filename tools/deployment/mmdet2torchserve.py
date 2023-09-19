@@ -16,6 +16,7 @@ except ImportError:
 def mmdet2torchserve(
     config_file: str,
     checkpoint_file: str,
+    yaml_config: str,
     output_folder: str,
     model_name: str,
     model_version: str = '1.0',
@@ -52,6 +53,7 @@ def mmdet2torchserve(
 
         args = Namespace(
             **{
+                'config_file': yaml_config,
                 'model_file': f'{tmpdir}/config.py',
                 'serialized_file': checkpoint_file,
                 'handler': f'{Path(__file__).parent}/mmdet_handler.py',
@@ -71,8 +73,9 @@ def mmdet2torchserve(
 def parse_args():
     parser = ArgumentParser(
         description='Convert MMDetection models to TorchServe `.mar` format.')
-    parser.add_argument('config', type=str, help='config file path')
+    parser.add_argument('config', type=str, help='model config file path')
     parser.add_argument('checkpoint', type=str, help='checkpoint file path')
+    parser.add_argument('yaml_config', type=str, help='serve config file path')
     parser.add_argument(
         '--output-folder',
         type=str,
@@ -107,5 +110,5 @@ if __name__ == '__main__':
         raise ImportError('`torch-model-archiver` is required.'
                           'Try: pip install torch-model-archiver')
 
-    mmdet2torchserve(args.config, args.checkpoint, args.output_folder,
+    mmdet2torchserve(args.config, args.checkpoint, args.yaml_config, args.output_folder,
                      args.model_name, args.model_version, args.force)
