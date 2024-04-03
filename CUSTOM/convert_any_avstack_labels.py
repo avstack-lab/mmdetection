@@ -9,7 +9,12 @@ import avapi
 from avstack.environment.objects import Occlusion
 
 
-def convert_avstack_to_coco(SM, scene_splits, out_file, n_skips=0, cameras=['CAM_FRONT'], cam_filter=None):
+def sensor_is_camera(sensor, cam_filter: str=""):
+    sens = sensor.lower()
+    return (('cam' in sens) or ("image" in sens)) and ("depth" not in sens) and ("semseg" not in sens) and (cam_filter in sens)
+
+
+def convert_avstack_to_coco(SM, scene_splits, out_file, n_skips=0, cam_filter=""):
     """
     Converts avstack labels to coco format
 
@@ -38,91 +43,77 @@ def convert_avstack_to_coco(SM, scene_splits, out_file, n_skips=0, cameras=['CAM
             print(f'Could not process scene {scene}...continuing')
             continue
 
-        # -- get names of sensors
-        if cameras is None:
-            cameras = [sens for sens in list(SD.sensor_IDs.keys()) if 
-                    (('cam' in sens.lower()) or ('image' in sens.lower())) and 
-                    ('depth' not in sens.lower()) and ('semseg' not in sens.lower())]
-        if cam_filter is not None:
-            cameras = [cam for cam in cameras if cam_filter.lower() in cam.lower()]
-
         # -- loop over sensors
-        for cam in cameras:
-            frames = SD.get_frames(sensor=cam)
-            height, width = None, None
-            for idx in range(0, len(frames), n_skips+1):
-                frame = frames[idx]
-                if (idx < 5) or (idx > len(frames)-5):  # don't do the first or last few frames
+        for agent in SD.sensor_IDs.keys():
+            for sensor in SD.sensor_IDs[agent]:
+                if not sensor_is_camera(sensor, cam_filter=cam_filter):
                     continue
-                # -- image information
-                try:
-                    calib = SD.get_calibration(frame, sensor=cam)
-                    objs = SD.get_objects(frame, sensor=cam)
-                    if len(objs) == 0:
-                        n_ignored += 1
-                        continue
-                except (FileNotFoundError, KeyError) as e:
-                    n_problems += 1
-                    logging.exception(e)
-                    continue
-                if height is None:
-                    height = int(calib.height)
-                    width = int(calib.width)
-                img_filepath = SD.get_sensor_data_filepath(frame, sensor=cam)
-                if not os.path.exists(img_filepath):
-                    logging.warning(f'Could not find image filepath at {img_filepath}')
-                    n_problems += 1
-                    continue
-                else:
+                print(f"\nagent: {agent}, sensor: {sensor}")
+                frames = SD.get_frames(sensor=sensor, agent=agent)
+                height, width = None, None
+                for idx in tqdm(range(5, len(frames)-5, n_skips+1)):
+                    frame = frames[idx]
+
+                    # -- image information
                     try:
-                        img = cv2.imread(img_filepath)
-                        if img is None:
-                            raise
-                    except Exception as e:
+                        calib = SD.get_calibration(frame, agent=agent, sensor=sensor)
+                        objs = SD.get_objects(frame, agent=agent, sensor=sensor)
+                        if len(objs) == 0:
+                            n_ignored += 1
+                            continue
+                    except (FileNotFoundError, KeyError) as e:
                         n_problems += 1
-                        logging.warning(f'Problem reading image at {img_filepath}')
+                        logging.exception(e)
                         continue
-                images.append(dict(
-                    id=idx_file,
-                    file_name=img_filepath,
-                    height=height,
-                    width=width))
-                idx_file += 1
-
-                # -- object information
-                for obj in objs:
-                    if obj.occlusion == Occlusion.UNKNOWN:
+                    if height is None:
+                        height = int(calib.height)
+                        width = int(calib.width)
+                    img_filepath = SD.get_sensor_data_filepath(frame, agent=agent, sensor=sensor)
+                    if not os.path.exists(img_filepath):
+                        logging.warning(f'Could not find image filepath at {img_filepath}')
+                        n_problems += 1
+                        continue
+                    else:
                         try:
-                            d_img = SD.get_depthimage(frame, cam + '_DEPTH')
-                        except KeyError as e:
-                            if first:
-                                print('\n\nNo depth image found. Logging first exception only. Do not worry if using a dataset like nuScenes or KITTI.\n\n')
-                                logging.exception(e)
-                            occ = obj.occlusion
-                            first = False
-                    else:
-                        occ = obj.occlusion
+                            img = cv2.imread(img_filepath)
+                            if img is None:
+                                raise
+                        except Exception as e:
+                            n_problems += 1
+                            logging.warning(f'Problem reading image at {img_filepath}')
+                            continue
+                    images.append(dict(
+                        id=idx_file,
+                        file_name=img_filepath,
+                        height=height,
+                        width=width))
+                    idx_file += 1
 
-                    # -- filter based on occlusion
-                    if obj.occlusion in [Occlusion.NONE, Occlusion.PARTIAL, \
-                                         Occlusion.MOST, Occlusion.UNKNOWN]:
-                        bbox_2d = obj.box.project_to_2d_bbox(calib)
-                    else:
-                        continue
+                    # -- object information
+                    for obj in objs:
+                        if obj.occlusion == Occlusion.UNKNOWN:
+                            raise RuntimeError("Cannot process unknown occlusion")
 
-                    # -- box coordinates are measured from top left and are 0-indexed
-                    x_min, y_min, x_max, y_max = bbox_2d.box2d
-                    x_min = int(x_min); y_min = int(y_min); x_max = int(x_max); y_max = int(y_max)
-                    data_anno = dict(
-                        image_id=idx_file,
-                        id=obj_count,
-                        category_id=obj_id_map[obj.obj_type],
-                        bbox=[x_min, y_min, x_max - x_min, y_max - y_min],
-                        area=(x_max - x_min) * (y_max - y_min),
-                        segmentation=[],
-                        iscrowd=0)
-                    annotations.append(data_anno)
-                    obj_count += 1
+                        # -- filter based on occlusion
+                        if obj.occlusion in [Occlusion.NONE, Occlusion.PARTIAL, \
+                                            Occlusion.MOST, Occlusion.UNKNOWN]:
+                            bbox_2d = obj.box.project_to_2d_bbox(calib)
+                        else:
+                            continue
+
+                        # -- box coordinates are measured from top left and are 0-indexed
+                        x_min, y_min, x_max, y_max = bbox_2d.box2d
+                        x_min = int(x_min); y_min = int(y_min); x_max = int(x_max); y_max = int(y_max)
+                        data_anno = dict(
+                            image_id=idx_file,
+                            id=obj_count,
+                            category_id=obj_id_map[obj.obj_type],
+                            bbox=[x_min, y_min, x_max - x_min, y_max - y_min],
+                            area=(x_max - x_min) * (y_max - y_min),
+                            segmentation=[],
+                            iscrowd=0)
+                        annotations.append(data_anno)
+                        obj_count += 1
 
     # -- store annotations
     coco_format_json = dict(
@@ -143,36 +134,29 @@ if __name__ == "__main__":
 
     # -- create scene manager and get scene splits
     dataset = args.dataset
-    if args.dataset == 'carla':
+    if args.dataset == 'carla-joint':
         SM = avapi.carla.CarlaScenesManager(args.data_dir)
-        cameras = None
-        cam_filter = None
+        cam_filter = ""
         splits_scenes = avapi.carla.get_splits_scenes(args.data_dir)
     elif args.dataset == 'carla-infrastructure':
         dataset = 'carla'
         SM = avapi.carla.CarlaScenesManager(args.data_dir)
-        cameras = None
         cam_filter = 'infra'
         splits_scenes = avapi.carla.get_splits_scenes(args.data_dir)
     elif args.dataset == 'carla-joint':
         dataset = 'carla'
         SM = avapi.carla.CarlaScenesManager(args.data_dir)
-        cameras = None
-        cam_filter = None
+        cam_filter = ""
         splits_scenes = avapi.carla.get_splits_scenes(args.data_dir)
     elif args.dataset == 'carla-joint':
         raise NotImplemented
     elif args.dataset == 'kitti':
-        cameras = ['image-2']
-        cam_filter = None
         splits_scenes = avapi.kitti.splits_scenes
         raise
     elif args.dataset == 'nuscenes':
         SM = avapi.nuscenes.nuScenesManager(args.data_dir, split="v1.0-trainval")
-        cameras = ['CAM_FRONT', 'CAM_BACK', 'CAM_FRONT_LEFT', 'CAM_FRONT_RIGHT',
-            'CAM_BACK_LEFT', 'CAM_BACK_RIGHT']
-        cam_filter = None
         splits_scenes = avapi.nuscenes.splits_scenes
+        cam_filter = ""
     else:
         raise NotImplementedError(args.dataset)
 
@@ -181,5 +165,5 @@ if __name__ == "__main__":
         print(f'Converting {split}...')
         out_file = f'../data/{dataset}/{args.subfolder}/{split}_annotation_{dataset}_in_coco.json'
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
-        convert_avstack_to_coco(SM, splits_scenes[split], out_file, n_skips=args.n_skips, cameras=cameras, cam_filter=cam_filter)
+        convert_avstack_to_coco(SM, splits_scenes[split], out_file, n_skips=args.n_skips, cam_filter=cam_filter)
         print(f'done')

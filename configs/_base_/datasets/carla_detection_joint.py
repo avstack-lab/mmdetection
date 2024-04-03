@@ -1,6 +1,6 @@
 # dataset settings
 dataset_type = 'CocoDataset'
-data_root = 'data/carla/joint/skip_0/'
+data_root = 'data/carla-joint/skip_10/'
 
 # Example to use different file client
 # Method 1: simply set the data root and let the file I/O module
@@ -43,7 +43,7 @@ train_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file='train_annotation_carla_in_coco.json',
+        ann_file='train_annotation_carla-joint_in_coco.json',
         data_prefix=dict(img=''),
         filter_cfg=dict(filter_empty_gt=True, min_size=32),
         pipeline=train_pipeline,
@@ -57,7 +57,7 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file='val_annotation_carla_in_coco.json',
+        ann_file='val_annotation_carla-joint_in_coco.json',
         data_prefix=dict(img=''),
         test_mode=True,
         pipeline=test_pipeline,
@@ -66,7 +66,7 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(
     type='CocoMetric',
-    ann_file=data_root + 'val_annotation_carla_in_coco.json',
+    ann_file=data_root + 'val_annotation_carla-joint_in_coco.json',
     metric='bbox',
     format_only=False,
     backend_args=backend_args)
