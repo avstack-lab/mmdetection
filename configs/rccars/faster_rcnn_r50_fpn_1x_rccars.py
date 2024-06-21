@@ -37,4 +37,4 @@ param_scheduler = [
 auto_scale_lr = dict(enable=False, base_batch_size=8)
 
 # We can use the pre-trained model to obtain higher performance
-load_from = 'checkpoints/cityscapes/faster_rcnn_r50_fpn_1x_cityscapes_20200502-829424c0.pth'
+load_from = '/data/shared/models/mmdet/checkpoints/cityscapes/faster_rcnn_r50_fpn_1x_cityscapes_20200502-829424c0.pth'
