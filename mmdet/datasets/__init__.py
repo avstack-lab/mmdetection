@@ -9,6 +9,7 @@ from .deepfashion import DeepFashionDataset
 from .lvis import LVISDataset, LVISV1Dataset, LVISV05Dataset
 from .objects365 import Objects365V1Dataset, Objects365V2Dataset
 from .openimages import OpenImagesChallengeDataset, OpenImagesDataset
+from .rccars import RcCarsDataset
 from .samplers import (AspectRatioBatchSampler, ClassAwareSampler,
                        GroupMultiSourceSampler, MultiSourceSampler)
 from .utils import get_loading_pipeline
@@ -23,5 +24,5 @@ __all__ = [
     'MultiImageMixDataset', 'OpenImagesDataset', 'OpenImagesChallengeDataset',
     'AspectRatioBatchSampler', 'ClassAwareSampler', 'MultiSourceSampler',
     'GroupMultiSourceSampler', 'BaseDetDataset', 'CrowdHumanDataset',
-    'Objects365V1Dataset', 'Objects365V2Dataset'
+    'Objects365V1Dataset', 'Objects365V2Dataset', 'RcCarsDataset'
 ]
