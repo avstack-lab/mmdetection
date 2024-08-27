@@ -1,21 +1,8 @@
 # dataset settings
 dataset_type = 'RcCarsDataset'
 data_root = '/data/shared/rccars/'
-
-# Example to use different file client
-# Method 1: simply set the data root and let the file I/O module
-# automatically infer from prefix (not support LMDB and Memcache yet)
-
-# data_root = 's3://openmmlab/datasets/detection/coco/'
-
-# Method 2: Use `backend_args`, `file_client_args` in versions before 3.0.0rc6
-# backend_args = dict(
-#     backend='petrel',
-#     path_mapping=dict({
-#         './data/': 's3://openmmlab/datasets/detection/',
-#         'data/': 's3://openmmlab/datasets/detection/'
-#     }))
 backend_args = None
+
 
 train_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
@@ -24,6 +11,7 @@ train_pipeline = [
         type='RandomResize',
         scale=[(1600, 600), (1600, 900)],
         keep_ratio=True),
+    dict(type='Pad', size_divisor=32),
     dict(type='RandomFlip', prob=0.5),
     dict(type='PackDetInputs')
 ]
