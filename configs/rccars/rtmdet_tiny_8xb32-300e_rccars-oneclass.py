@@ -3,12 +3,12 @@ _base_ = [
     '../rtmdet/rtmdet_tiny_8xb32-300e_coco.py',
 ]
 
-data_root = '/data/shared/rccars/oneclass-detection'
+data_root = '/data/shared/rccars/oneclass-detection-2024'
 
 train_batch_size_per_gpu = 4
 train_num_workers = 2
 
-max_epochs = 20
+max_epochs = 100
 stage2_num_epochs = 1
 base_lr = 0.00008
 
@@ -89,7 +89,7 @@ optim_wrapper = dict(
 default_hooks = dict(
     checkpoint=dict(
         interval=5,
-        max_keep_ckpts=2,  # only keep latest 2 checkpoints
+        max_keep_ckpts=100,  # only keep latest checkpoints
         save_best='auto'
     ),
     logger=dict(type='LoggerHook', interval=5))
