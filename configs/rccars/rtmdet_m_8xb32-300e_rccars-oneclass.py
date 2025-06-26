@@ -3,7 +3,7 @@ _base_ = [
     '../rtmdet/rtmdet_m_8xb32-300e_coco.py',
 ]
 
-data_root = '/data/shared/rccars/oneclass-detection-2024'
+data_root = '/data/shared/rccars/oneclass-detection-2025'
 
 train_batch_size_per_gpu = 4
 train_num_workers = 2

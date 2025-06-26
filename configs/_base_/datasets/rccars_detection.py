@@ -1,6 +1,6 @@
 # dataset settings
 dataset_type = 'RcCarsDataset'
-data_root = '/data/shared/rccars/raw-2024/'
+data_root = '/data/shared/rccars/raw-2025/'
 backend_args = None
 
 
